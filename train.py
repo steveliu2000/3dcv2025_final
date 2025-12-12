@@ -42,6 +42,8 @@ if __name__ == '__main__':
     # this is used for regularization w.r.t. the base model as well as to compare the results    
     trainer.create_base_encoder()
 
+    step = 0
+    stop = False
     for epoch in range(config.train.resume_epoch, config.train.num_epochs):
         
         # restart everything at each epoch!
@@ -49,6 +51,7 @@ if __name__ == '__main__':
 
         for phase in ['train', 'val']:
             loader = train_loader if phase == 'train' else val_loader
+            print(f'----- {phase} epoch {epoch} -----')
             
             for batch_idx, batch in tqdm(enumerate(loader), total=len(loader)):
                 if batch is None:
@@ -58,6 +61,8 @@ if __name__ == '__main__':
 
                 for key in batch:
                     batch[key] = batch[key].to(config.device)
+                    if config.train.use_sequencial_data:
+                        batch[key] = batch[key][0].to(config.device)
 
                 outputs = trainer.step(batch, batch_idx, phase=phase)
 
@@ -66,7 +71,15 @@ if __name__ == '__main__':
                         visualizations = trainer.create_visualizations(batch, outputs)
                         trainer.save_visualizations(visualizations, f"{config.train.log_path}/{phase}_images/{epoch}_{batch_idx}.jpg", show_landmarks=True)
                                     
-
+                step += 1
+                if step >= config.train.num_steps:
+                    trainer.save_model(trainer.state_dict(), os.path.join(config.train.log_path, 'model_step{}.pt'.format(step)))
+                    stop = True
+                    break
+            if stop:
+                break
+        if stop:
+            break
 
         if epoch % config.train.save_every == 0:
             trainer.save_model(trainer.state_dict(), os.path.join(config.train.log_path, 'model_{}.pt'.format(epoch)))

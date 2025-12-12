@@ -6,6 +6,7 @@ from ibug.face_detection import RetinaFacePredictor
 from ibug.face_alignment import FANPredictor
 import argparse
 from ibug.face_alignment.utils import plot_landmarks
+import pickle
 
 # Initialize the argument parser
 parser = argparse.ArgumentParser(description='Process images/videos with https://github.com/hhj1897/face_alignment.')
@@ -33,15 +34,16 @@ face_detector = RetinaFacePredictor(
 landmark_detector = FANPredictor(
     device='cuda:0', model=FANPredictor.get_model('2dfan2_alt'))
 
-for root, file_name in tqdm(all_files):
+def process_image(root, file_name, face_detector, landmark_detector):
     input_path = os.path.join(root, file_name)
     rel_path = os.path.relpath(input_path, args.input_dir)
-    output_path = os.path.join(args.output_dir, os.path.splitext(rel_path)[0] + '.npy')
+    output_path = os.path.join(args.output_dir, os.path.splitext(rel_path)[0] + '.pkl')
     vis_path = os.path.join(args.vis_dir, rel_path) if args.vis_dir else None
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     image = cv2.imread(os.path.join(root, file_name))
+    print(os.path.join(root, file_name))
 
     detected_faces = face_detector(image, rgb=False)
 
@@ -55,4 +57,61 @@ for root, file_name in tqdm(all_files):
     if vis_path:
         os.makedirs(os.path.dirname(vis_path), exist_ok=True)
         cv2.imwrite(vis_path, image)
+
+def process_video(root, file_name, face_detector, landmark_detector):
+    input_path = os.path.join(root, file_name)
+    rel_path = os.path.relpath(input_path, args.input_dir)
+    output_path = os.path.join(args.output_dir, os.path.splitext(rel_path)[0] + '.pkl')
+    if os.path.exists(output_path):
+        return
+    vis_path = os.path.join(args.vis_dir, rel_path) if args.vis_dir else None
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    cap = cv2.VideoCapture(input_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    frame_landmarks = []
+
+    if vis_path:
+        os.makedirs(os.path.dirname(vis_path), exist_ok=True)
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(vis_path, fourcc, fps, (width, height))
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
         
+        detected_faces = face_detector(frame, rgb=False)
+
+        landmarks, scores = landmark_detector(frame, detected_faces, rgb=False)
+
+        if landmarks.size == 0:
+            frame_landmarks.append(None)
+
+        if landmarks.ndim == 3 and landmarks.shape[0] == 1:
+            frame_landmarks.append(landmarks.squeeze(0))
+
+        if vis_path:
+            for lmks, scs in zip(landmarks, scores):
+                plot_landmarks(frame, lmks, scs, threshold=0.2)
+            out.write(frame)
+
+    cap.release()
+    if vis_path:
+        out.release()
+
+    # Save video landmarks
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "wb") as f:
+        pickle.dump(frame_landmarks, f)
+
+
+for root, file_name in tqdm(all_files):
+    if file_name.lower().endswith(('.jpg', '.png')):
+        process_image(root, file_name, face_detector, landmark_detector)
+    if file_name.lower().endswith(('.mp4', '.avi')):
+        process_video(root, file_name, face_detector, landmark_detector)

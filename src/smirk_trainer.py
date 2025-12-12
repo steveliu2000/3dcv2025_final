@@ -1,4 +1,5 @@
 import torch.utils.data
+import torch
 import torch.nn.functional as F
 from src.FLAME.FLAME import FLAME
 from src.renderer.renderer import Renderer
@@ -30,6 +31,80 @@ class SmirkTrainer(BaseTrainer):
         # --------- setup flame masks for sampling --------- #
         self.face_probabilities = masking_utils.load_probabilities_per_FLAME_triangle()  
 
+    #讀取 loss weight
+    def _get_loss_weight(self, key, default=0.0):
+        # fetch a loss weight from config.train.loss_weights.
+        lw = getattr(self.config.train, "loss_weights", None)
+        if lw is None:
+            return default
+
+        # dict-like
+        if isinstance(lw, dict):
+            return lw.get(key, default)
+
+        # OmegaConf / attribute-like
+        return getattr(lw, key, default) if hasattr(lw, key) else default    
+    
+    #temporal losses
+    #設dataloader : 一個 batch = V 支影片 × 每支影片 T 幀(B=V*T)
+    def compute_temporal_losses(self, encoder_output):
+
+        temporal_losses = {}
+        total_temporal_loss = 0.0
+
+        #expression_params 當基準 取 batch 大小
+        if 'expression_params' not in encoder_output:
+            return 0.0, temporal_losses
+
+        # 讀各temporal loss weights，if none == 0
+        w_expr = self._get_loss_weight("temporal_expression", 0.0)
+        w_jaw = self._get_loss_weight("temporal_jaw", 0.0)
+        w_pose = self._get_loss_weight("temporal_pose", 0.0)
+        w_eyelid = self._get_loss_weight("temporal_eyelid", 0.0)
+        w_shape_id = self._get_loss_weight("temporal_identity", 0.0)
+
+        # Expression
+        if w_expr > 0.0:
+            expr = encoder_output['expression_params']
+            expr_diff = expr[1:, ...] - expr[:-1, ...]
+            expr_smooth_loss = expr_diff.abs().mean()
+            temporal_losses["temporal_expression"] = expr_smooth_loss
+            total_temporal_loss = total_temporal_loss + w_expr * expr_smooth_loss
+
+        # Jaw
+        if w_jaw > 0.0 and ("jaw_params" in encoder_output):
+            jaw = encoder_output["jaw_params"]
+            jaw_diff = jaw[1:, ...] - jaw[:-1, ...]
+            jaw_smooth_loss = jaw_diff.abs().mean()
+            temporal_losses["temporal_jaw"] = jaw_smooth_loss
+            total_temporal_loss = total_temporal_loss + w_jaw * jaw_smooth_loss
+
+        # Pose smoothness
+        if w_pose > 0.0 and ("pose_params" in encoder_output):
+            pose = encoder_output["pose_params"]
+            pose_diff = pose[1:, ...] - pose[:-1, ...]
+            pose_smooth_loss = pose_diff.abs().mean()
+            temporal_losses["temporal_pose"] = pose_smooth_loss
+            total_temporal_loss = total_temporal_loss + w_pose * pose_smooth_loss
+
+        # Eyelid
+        if w_eyelid > 0.0 and ("eyelid_params" in encoder_output):
+            eyelid = encoder_output["eyelid_params"]
+            eyelid_diff = eyelid[1:, ...] - eyelid[:-1, ...]
+            eyelid_smooth_loss = eyelid_diff.abs().mean()
+            temporal_losses["temporal_eyelid"] = eyelid_smooth_loss
+            total_temporal_loss = total_temporal_loss + w_eyelid * eyelid_smooth_loss
+
+        # Shape identity
+        if w_shape_id > 0.0 and ("shape_params" in encoder_output):
+            shape = encoder_output["shape_params"]
+            shape_mean = shape.mean(dim=0, keepdim=True)
+            shape_diff = shape - shape_mean
+            identity_loss = (shape_diff ** 2).mean()    # L2 variance
+            temporal_losses["temporal_identity"] = identity_loss
+            total_temporal_loss = total_temporal_loss + w_shape_id * identity_loss
+
+        return total_temporal_loss, temporal_losses
 
     def step1(self, batch):
         B, C, H, W = batch['img'].shape
@@ -37,8 +112,8 @@ class SmirkTrainer(BaseTrainer):
         encoder_output = self.smirk_encoder(batch['img'])
         
 
-        with torch.no_grad():
-            base_output = self.base_encoder(batch['img'])
+        # with torch.no_grad():
+        #     base_output = self.base_encoder(batch['img'])
 
         flame_output = self.flame.forward(encoder_output)
         
@@ -155,6 +230,14 @@ class SmirkTrainer(BaseTrainer):
 
         for key, value in losses.items():
             losses[key] = value.item() if isinstance(value, torch.Tensor) else value
+
+        #new====
+        if hasattr(self.config.train, 'use_temporal_loss') and self.config.train.use_temporal_loss:
+            temporal_loss, temporal_losses = self.compute_temporal_losses(encoder_output)
+            loss_first_path += temporal_loss
+        
+            for key, value in temporal_losses.items():
+                losses[key] = value.item() if isinstance(value, torch.Tensor) else value
 
         # ---------------- create a dictionary of outputs to visualize ---------------- #
         outputs = {}

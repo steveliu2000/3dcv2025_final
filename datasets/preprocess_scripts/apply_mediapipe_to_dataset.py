@@ -54,6 +54,7 @@ def process_video(video_file, output_file, vis_file, face_detector):
     frame_landmarks = []
 
     if vis_file:
+        os.makedirs(os.path.dirname(vis_file), exist_ok=True)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(vis_file, fourcc, fps, (width, height))
 

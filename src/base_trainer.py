@@ -126,6 +126,14 @@ class BaseTrainer(nn.Module):
         if step_fuse_generator and self.config.arch.enable_fuse_generator:
             self.smirk_generator_optimizer.step()
 
+    def resize_keep_aspect(self, img, target_h):
+        # img: (C, H, W)
+        C, H, W = img.shape
+        new_w = int(W * target_h / H)
+        img = img.unsqueeze(0)     # → (1, C, H, W)
+        img = F.interpolate(img, size=(target_h, new_w), mode='bilinear', align_corners=False)
+        return img.squeeze(0)      # → (C, new_H, new_W)
+
 
     def save_visualizations(self, outputs, save_path, show_landmarks=False):
         nrow = 1
@@ -151,8 +159,23 @@ class BaseTrainer(nn.Module):
                       '2nd_path']
         
         nrows = [1 if '2nd_path' not in key else 4 * self.config.train.Ke for key in image_keys]
+
+        # --- unify sizes ---
+        H, W = original_grid.shape[1], original_grid.shape[2]
+        target_size = (H, W)
+            
+        grids = [original_grid]
+        for key, nr in zip(image_keys, nrows):
+            if key not in outputs:
+                continue
+            
+            g = make_grid(outputs[key].detach().cpu(), nrow=nr)              
+            if g.shape[1] != H:
+                g = self.resize_keep_aspect(g, target_h=H)
+            grids.append(g)
+
         
-        grid = torch.cat([original_grid] + [make_grid(outputs[key].detach().cpu(), nrow=nr) for key, nr in zip(image_keys, nrows) if key in outputs.keys()], dim=2)
+        grid = torch.cat(grids, dim=2)
             
         grid = grid.permute(1,2,0).cpu().numpy()*255.0
         grid = np.clip(grid, 0, 255)

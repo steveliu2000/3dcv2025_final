@@ -8,16 +8,17 @@ deterministic: False
 
 train:
 
-  lr: 1e-3
+  lr: 1e-4
   num_epochs: 50
-  batch_size: 32
+  batch_size: 16
+  use_sequencial_data: true
   num_workers: 8
   log_path: logs/1
   log_losses_every: 10
   visualize_every: 50
   mask_ratio: 0.01  # % pixel to be retained inside the face mask
   mask_dilation_radius: 10 # dilation of the initial face mask
-  save_every: 2 # save model every n epochs
+  save_every: 1 # save model every n epochs
   use_wandb: False
   Ke: 1 # number of repeated frames for 2nd cycle path
   samples_per_epoch: 50000
@@ -26,6 +27,9 @@ train:
   train_scale_min: 1.2  # min scale for data augmentation during training
   train_scale_max: 1.8 # max scale for data augmentation during training
   test_scale: 1.6 # fixed scale for testing
+
+  use_temporal_loss: true
+  num_steps: 5000
 
   loss_weights:
     landmark_loss: 100.0   # landmark loss weight
@@ -37,6 +41,13 @@ train:
     shape_regularization: 100  
     cycle_loss: 1.0  # CYCLE loss
     mica_loss: 0
+    
+    # temporal loss
+    temporal_expression: 0.1
+    temporal_jaw: 0.05
+    temporal_pose: 0.1
+    temporal_eyelid: 0.05
+    temporal_identity: 0.05
 
   optimize_pose: False
   optimize_shape: False
@@ -60,26 +71,26 @@ render:
   full_head: False  # full FLAME rendering
 
 dataset:
-  LRS3_path: /gpu-data4/filby/LRS3
-  LRS3_landmarks_path: /gpu-data4/filby/LRS3_landmarks
+  # LRS3_path: /gpu-data4/filby/LRS3
+  # LRS3_landmarks_path: /gpu-data4/filby/LRS3_landmarks
 
-  MEAD_path: /gpu-data4/filby/MEAD_preprocessed/MEAD_front/videos
-  MEAD_fan_landmarks_path: /gpu-data4/filby/MEAD_preprocessed/MEAD_front/fan_landmarks_hhj1897
-  MEAD_mediapipe_landmarks_path: /gpu-data4/filby/MEAD_preprocessed/MEAD_front/mediapipe_landmarks
+  MEAD_path: /home/chliu/Documents/data1/face_dataset/MEAD
+  MEAD_fan_landmarks_path: /home/chliu/Documents/data1/face_dataset/MEAD/fan_landmarks
+  MEAD_mediapipe_landmarks_path: /home/chliu/Documents/data1/face_dataset/MEAD/mediapipe_landmarks
 
-  FFHQ_path: /gpu-data4/filby/FFHQ256/ffhq256
-  FFHQ_fan_landmarks_path: /gpu-data4/filby/FFHQ256/fan_landmarks_hhj1897
-  FFHQ_mediapipe_landmarks_path: /gpu-data4/filby/FFHQ256/mediapipe_landmarks
+  # FFHQ_path: /gpu-data4/filby/FFHQ256/ffhq256
+  # FFHQ_fan_landmarks_path: /gpu-data4/filby/FFHQ256/fan_landmarks_hhj1897
+  # FFHQ_mediapipe_landmarks_path: /gpu-data4/filby/FFHQ256/mediapipe_landmarks
 
-  CelebA_path: /gpu-data4/filby/CelebA/img_align_celeba
-  CelebA_fan_landmarks_path: /gpu-data4/filby/CelebA/fan_landmarks_hhj1897
-  CelebA_mediapipe_landmarks_path: /gpu-data4/filby/CelebA/mediapipe_landmarks
+  # CelebA_path: /gpu-data4/filby/CelebA/img_align_celeba
+  # CelebA_fan_landmarks_path: /gpu-data4/filby/CelebA/fan_landmarks_hhj1897
+  # CelebA_mediapipe_landmarks_path: /gpu-data4/filby/CelebA/mediapipe_landmarks
 
-  BUPT_path: /gpu-data4/filby/BalancedFace/race_per_7000
-  BUPT_fan_landmarks_path: /gpu-data4/filby/BalancedFace/fan_landmarks_hhj1897
-  BUPT_mediapipe_landmarks_path: /gpu-data4/filby/BalancedFace/mediapipe_landmarks
+  # BUPT_path: /gpu-data4/filby/BalancedFace/race_per_7000
+  # BUPT_fan_landmarks_path: /gpu-data4/filby/BalancedFace/fan_landmarks_hhj1897
+  # BUPT_mediapipe_landmarks_path: /gpu-data4/filby/BalancedFace/mediapipe_landmarks
 
-  MEAD_sides_path: /gpu-data4/filby/MEAD_preprocessed
+  MEAD_sides_path: /home/chliu/Documents/data1/face_dataset/MEAD
 
   # percentage of data to use for each dataset
   LRS3_percentage: 0.2
