@@ -2,6 +2,10 @@ import torch
 import cv2
 import numpy as np
 from skimage.transform import estimate_transform, warp
+from tqdm import tqdm
+from glob import glob
+import pickle
+
 from src.smirk_encoder import SmirkEncoder
 from src.FLAME.FLAME import FLAME
 from src.renderer.renderer import Renderer
@@ -34,48 +38,8 @@ def crop_face(frame, landmarks, scale=1.0, image_size=224):
     return tform
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--input_path', type=str, default='samples/mead_90.png', help='Path to the input image/video')
-    parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on')
-    parser.add_argument('--checkpoint', type=str, default='trained_models/SMIRK_em1.pt', help='Path to the checkpoint')
-    parser.add_argument('--crop', action='store_true', help='Crop the face using mediapipe')
-    parser.add_argument('--out_path', type=str, default='output', help='Path to save the output (will be created if not exists)')
-    parser.add_argument('--use_smirk_generator', action='store_true', help='Use SMIRK neural image to image translator to reconstruct the image')
-    parser.add_argument('--render_orig', action='store_true', help='Present the result w.r.t. the original image/video size')
-
-    args = parser.parse_args()
-
-    image_size = 224
-    
-
-    # ----------------------- initialize configuration ----------------------- #
-    smirk_encoder = SmirkEncoder().to(args.device)
-    checkpoint = torch.load(args.checkpoint)
-    checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if 'smirk_encoder' in k} # checkpoint includes both smirk_encoder and smirk_generator
-
-    smirk_encoder.load_state_dict(checkpoint_encoder)
-    smirk_encoder.eval()
-
-    if args.use_smirk_generator:
-        from src.smirk_generator import SmirkGenerator
-        smirk_generator = SmirkGenerator(in_channels=6, out_channels=3, init_features=32, res_blocks=5).to(args.device)
-
-        checkpoint_generator = {k.replace('smirk_generator.', ''): v for k, v in checkpoint.items() if 'smirk_generator' in k} # checkpoint includes both smirk_encoder and smirk_generator
-        smirk_generator.load_state_dict(checkpoint_generator)
-        smirk_generator.eval()
-
-    # ---- visualize the results ---- #
-
-    flame = FLAME().to(args.device)
-    renderer = Renderer().to(args.device)
-
-    # check if input is an image or a video or webcam or directory
-    
-
-    
-    image = cv2.imread(args.input_path)
+def process_one_image(image_path, args):
+    image = cv2.imread(image_path)
     orig_image_height, orig_image_width, _ = image.shape
 
     kpt_mediapipe = run_mediapipe(image)
@@ -188,7 +152,75 @@ if __name__ == '__main__':
     if not os.path.exists(args.out_path):
         os.makedirs(args.out_path)
 
-    image_name = args.input_path.split('/')[-1]
+    image_name = image_path.split('/')[-1]
 
     cv2.imwrite(f"{args.out_path}/{image_name}", grid_numpy)
+
+    return outputs
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--input_path', type=str, default='samples/mead_90.png', help='Path to the input image/video')
+    parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on')
+    parser.add_argument('--checkpoint', type=str, default='trained_models/SMIRK_em1.pt', help='Path to the checkpoint')
+    parser.add_argument('--crop', action='store_true', help='Crop the face using mediapipe')
+    parser.add_argument('--out_path', type=str, default='output', help='Path to save the output (will be created if not exists)')
+    parser.add_argument('--use_smirk_generator', action='store_true', help='Use SMIRK neural image to image translator to reconstruct the image')
+    parser.add_argument('--render_orig', action='store_true', help='Present the result w.r.t. the original image/video size')
+
+    args = parser.parse_args()
+
+    image_size = 224
+    
+
+    # ----------------------- initialize configuration ----------------------- #
+    smirk_encoder = SmirkEncoder().to(args.device)
+    checkpoint = torch.load(args.checkpoint)
+    checkpoint_encoder = {k.replace('smirk_encoder.', ''): v for k, v in checkpoint.items() if 'smirk_encoder' in k} # checkpoint includes both smirk_encoder and smirk_generator
+
+    smirk_encoder.load_state_dict(checkpoint_encoder)
+    smirk_encoder.eval()
+
+    if args.use_smirk_generator:
+        from src.smirk_generator import SmirkGenerator
+        smirk_generator = SmirkGenerator(in_channels=6, out_channels=3, init_features=32, res_blocks=5).to(args.device)
+
+        checkpoint_generator = {k.replace('smirk_generator.', ''): v for k, v in checkpoint.items() if 'smirk_generator' in k} # checkpoint includes both smirk_encoder and smirk_generator
+        smirk_generator.load_state_dict(checkpoint_generator)
+        smirk_generator.eval()
+
+    # ---- visualize the results ---- #
+
+    flame = FLAME().to(args.device)
+    renderer = Renderer().to(args.device)
+
+    # check if input is an image or a video or webcam or directory
+    image_extensions = [
+        "*.jpg",
+        "*.jpeg",
+        "*.png",
+        "*.gif",
+        "*.bmp",
+        "*.tiff",
+        "*.webp",
+    ]
+    images_list = sorted(
+        [
+            image
+            for ext in image_extensions
+            for image in glob(os.path.join(args.input_path, ext))
+        ]
+    )
+
+    all_outputs = {}
+    for image in tqdm(images_list):
+        outputs = process_one_image(image, args)
+
+        all_outputs[image] = outputs
+        with open(f"{args.out_path}/smirk_outputs.pkl", "wb") as f:
+            pickle.dump(all_outputs, f)
+    
 

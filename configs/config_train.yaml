@@ -49,8 +49,8 @@ train:
     temporal_eyelid: 0.05
     temporal_identity: 0.05
 
-  optimize_pose: False
-  optimize_shape: False
+  optimize_pose: True
+  optimize_shape: True
   optimize_expression: True  # optimize only expression
 
   # automatically tunable hyperparameters - just declared here
