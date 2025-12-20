@@ -24,7 +24,8 @@ echo -e "\nDownload pretrained SMIRK model..."
 mkdir -p pretrained_models/
 gdown --id 1T65uEd9dVLHgVw5KiUYL66NUee-MCzoE -O pretrained_models/
 
-
+gdown --id 1OW3asX-CzikHN-lzK5dcxBuGBThoVmCS -O pretrained_models/
+gdown --id 170zrWhCDFgmmdJTWfgV1SQ9CN-SeUV-R -O pretrained_models/
 
 # The rest of the files are needed for training
 echo -e "\n Now downloading the files needed if you want to train SMIRK..."

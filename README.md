@@ -15,11 +15,24 @@ bash quick_install.sh
 ```
 *The above installation includes downloading the [FLAME](https://flame.is.tue.mpg.de/) model. This requires registration. If you do not have an account you can register at [https://flame.is.tue.mpg.de/](https://flame.is.tue.mpg.de/)*
 
-This command will also download the SMIRK pretrained model which can also be found on [Google Drive](https://drive.google.com/file/d/1T65uEd9dVLHgVw5KiUYL66NUee-MCzoE/view?usp=sharing).
+This command will also download the SMIRK pretrained model which can also be found on [Google Drive](https://drive.google.com/file/d/1T65uEd9dVLHgVw5KiUYL66NUee-MCzoE/view?usp=sharing) and [Google Drive](https://drive.google.com/drive/u/0/folders/1eqj7q9pXU5nXH4awhnRl_QwaWDnIrj3H).
 
+## Demo 
+We provide two demos. One that can be used to test the model on a single image,
+
+```bash
+python demo.py --input_path samples/test_image2.png --out_path results/ --checkpoint pretrained_models/non_temporal.pt --crop
+```
+
+and one that can be used to test the model on a video,
+
+```bash
+python demo_video.py --input_path MEAD_samples/001.mp4 --out_path results/ --checkpoint pretrained_models/temporal.pt --crop --render_orig
+```
 
 ## Training
 
+### Dataset Preparation
 Download the MEAD dataset from [here](https://wywu.github.io/projects/MEAD/MEAD.html).
 
 After downloading the datasets we need to extract the landmarks using mediapipe and FAN. We provide the scripts for preprocessing in `datasets/preprocess_scripts`. Example usage:
@@ -42,6 +55,7 @@ cd ..
 python datasets/preprocess_scripts/apply_fan_to_dataset.py --input_dir PATH_TO_MEAD --output_dir PATH_TO_MEAD/fan_landmarks
 ```
 
+### Training
 ```bash
 # With temporal loss
 python train.py configs/config_train.yaml resume=pretrained_models/SMIRK_em1.pt train.loss_weights.emotion_loss=1.0 train.use_temporal_loss=true train.log_path=logs/temporal
