@@ -74,9 +74,9 @@ dataset:
   # LRS3_path: /gpu-data4/filby/LRS3
   # LRS3_landmarks_path: /gpu-data4/filby/LRS3_landmarks
 
-  MEAD_path: /home/chliu/Documents/data1/face_dataset/MEAD
-  MEAD_fan_landmarks_path: /home/chliu/Documents/data1/face_dataset/MEAD/fan_landmarks
-  MEAD_mediapipe_landmarks_path: /home/chliu/Documents/data1/face_dataset/MEAD/mediapipe_landmarks
+  MEAD_path: MEAD
+  MEAD_fan_landmarks_path: MEAD/fan_landmarks
+  MEAD_mediapipe_landmarks_path: MEAD/mediapipe_landmarks
 
   # FFHQ_path: /gpu-data4/filby/FFHQ256/ffhq256
   # FFHQ_fan_landmarks_path: /gpu-data4/filby/FFHQ256/fan_landmarks_hhj1897
@@ -90,14 +90,14 @@ dataset:
   # BUPT_fan_landmarks_path: /gpu-data4/filby/BalancedFace/fan_landmarks_hhj1897
   # BUPT_mediapipe_landmarks_path: /gpu-data4/filby/BalancedFace/mediapipe_landmarks
 
-  MEAD_sides_path: /home/chliu/Documents/data1/face_dataset/MEAD
+  # MEAD_sides_path: /home/chliu/Documents/data1/face_dataset/MEAD
 
   # percentage of data to use for each dataset
-  LRS3_percentage: 0.2
-  LRS3_temporal_sampling: False
-  MEAD_percentage: 0.1 
-  FFHQ_percentage: 0.3 
-  CelebA_percentage: 0.3 
-  MEAD_sides_percentage: 0.1
-  sample_full_video_for_testing: False
+  # LRS3_percentage: 0.2
+  # LRS3_temporal_sampling: False
+  # MEAD_percentage: 0.1 
+  # FFHQ_percentage: 0.3 
+  # CelebA_percentage: 0.3 
+  # MEAD_sides_percentage: 0.1
+  # sample_full_video_for_testing: False
 
